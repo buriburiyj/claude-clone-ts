@@ -2,7 +2,8 @@ import { wrapAll } from './tools/wrap.js';
 import { bus } from './ui/events.js';
 import React, { useState, useCallback } from 'react';
 import { render, Box, Text, Static, useApp, useInput } from 'ink';
-import { getMode, cycleMode, modeLabel, modeColor, type PermissionMode } from './permissions/mode.js';
+import { buildSystemPrompt } from './prompt/system.js';
+import { setMode, getMode, cycleMode, modeLabel, modeColor, type PermissionMode } from './permissions/mode.js';
 import { MentionInput } from './ui/MentionInput.js';
 import { callModel, stepCountIs } from '@openrouter/agent';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
@@ -101,6 +102,7 @@ function App() {
           const result = callModel(client, {
             model: m,
             ...(userInput ? { input: userInput } : {}),
+            instructions: buildSystemPrompt(),
             tools: wrappedTools,
             state,
             ...(decision?.approve ? { approveToolCalls: decision.approve } : {}),
@@ -146,7 +148,10 @@ function App() {
           const nextPending: PendingCall[] = s?.pendingToolCalls ?? [];
           if (nextPending.length > 0) {
             const call = nextPending[0]!;
-            if (shouldAutoApprove(call.name)) {
+            if (getMode() === 'plan' && WRITE_TOOLS.has(call.name)) {
+              push({ kind: 'note', text: '⏸ plan mode — ' + call.name + ' blocked' });
+              void drive(undefined, { reject: [call.id] });
+            } else if (shouldAutoApprove(call.name)) {
               setBusy(false);
               await drive(undefined, { approve: [call.id] });
               return;
@@ -286,5 +291,7 @@ function App() {
     </Box>
   );
 }
+
+if (process.argv.includes('--dangerously-skip-permissions')) setMode('bypassPermissions');
 
 render(<App />);
