@@ -1,3 +1,5 @@
+import { wrapAll } from './tools/wrap.js';
+import { bus } from './ui/events.js';
 import React, { useState, useCallback } from 'react';
 import { render, Box, Text, Static, useApp, useInput } from 'ink';
 import TextInput from 'ink-text-input';
@@ -13,6 +15,8 @@ import { ToolCallLine, ToolResultLines, ErrorLine, summarize } from './ui/render
 import { DiffView } from './ui/diff.js';
 import { ApprovalDialog, type PendingCall, type Decision } from './ui/approval.js';
 
+
+const wrappedTools = wrapAll(tools as any) as typeof tools;
 type Item =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string }
@@ -20,7 +24,8 @@ type Item =
   | { kind: 'result'; text: string }
   | { kind: 'diff'; oldText: string; newText: string }
   | { kind: 'error'; text: string }
-  | { kind: 'note'; text: string };
+  | { kind: 'note'; text: string }
+  | { kind: 'banner' };
 
 const client = createClient();
 const sessionId = newSessionId();
@@ -30,15 +35,28 @@ const state = session.accessor;
 function App() {
   const c = getColors();
   const { exit } = useApp();
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<Item[]>([{ kind: 'banner' }]);
+
+  React.useEffect(() => {
+    const onTool = (ev: any) => {
+      if (ev.kind === 'tool_result') {
+        setItems((x: any) => [...x, { kind: 'result', text: ev.summary, ok: ev.ok }]);
+      } else if (ev.kind === 'diff') {
+        setItems((x: any) => [...x, { kind: 'diff', filePath: ev.filePath, oldText: ev.oldText, newText: ev.newText }]);
+      }
+    };
+    bus.on('tool', onTool);
+    return () => { bus.off('tool', onTool); };
+  }, []);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
   const [tokens, setTokens] = useState(0);
   const [activeTool, setActiveTool] = useState<string | undefined>();
   const [pending, setPending] = useState<PendingCall | null>(null);
-  const [autoApprove, setAutoApprove] = useState<Set<string>>(new Set());
+  const autoApproveRef = React.useRef<Set<string>>(new Set());
   const [model, setModel] = useState<string>(MODELS[0]!);
+  const modelRef = React.useRef<string>(MODELS[0]!);
   const [, setThemeTick] = useState(0);
 
   const push = useCallback((it: Item) => setItems((prev) => [...prev, it]), []);
@@ -52,24 +70,32 @@ function App() {
     setStartedAt(Date.now());
     setActiveTool(undefined);
 
-    for (let mi = 0; mi < MODELS.length; mi++) {
+    const start = Math.max(0, (MODELS as readonly string[]).indexOf(modelRef.current));
+    for (let mi = start; mi < MODELS.length; mi++) {
       const m = MODELS[mi]!;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const result = callModel(client, {
             model: m,
             ...(userInput ? { input: userInput } : {}),
-            tools,
+            tools: wrappedTools,
             state,
             ...(decision?.approve ? { approveToolCalls: decision.approve } : {}),
             ...(decision?.reject ? { rejectToolCalls: decision.reject } : {}),
             stopWhen: stepCountIs(20),
           } as any);
 
+          modelRef.current = m;
           if (m !== model) setModel(m);
 
           const argBuf = new Map<string, string>();
           const nameBuf = new Map<string, string>();
+
+          const pump = (async () => {
+            try {
+              for await (const _te of (result as any).getToolStream()) { void _te; }
+            } catch {}
+          })();
 
           for await (const ev of result.getFullResponsesStream() as any) {
             const t = ev?.type;
@@ -83,17 +109,10 @@ function App() {
                 parsed = JSON.parse(ev.arguments || '{}');
               } catch {}
               push({ kind: 'tool', name: ev.name ?? nameBuf.get(ev.itemId) ?? '?', args: parsed });
-            } else if (t === 'tool.result') {
-              const nm = ev.result?.__name ?? activeTool ?? '';
-              if (ev.result?.oldText != null && ev.result?.newText != null) {
-                push({ kind: 'diff', oldText: ev.result.oldText, newText: ev.result.newText });
-              } else {
-                push({ kind: 'result', text: summarize(nm, ev.result) });
-              }
-              setActiveTool(undefined);
             }
           }
 
+          await pump;
           const text = await result.getText().catch(() => '');
           await result.getResponse().catch(() => {});
           const usage = await result.getUsage().catch(() => null);
@@ -104,7 +123,7 @@ function App() {
           const nextPending: PendingCall[] = s?.pendingToolCalls ?? [];
           if (nextPending.length > 0) {
             const call = nextPending[0]!;
-            if (autoApprove.has(call.name)) {
+            if (autoApproveRef.current.has(call.name)) {
               setBusy(false);
               await drive(undefined, { approve: [call.id] });
               return;
@@ -141,7 +160,7 @@ function App() {
     if (!v) return;
     if (v === '/exit' || v === '/quit') return exit();
     if (v === '/clear') {
-      setItems([]);
+      setItems([{ kind: 'banner' }]);
       setTokens(0);
       return;
     }
@@ -184,17 +203,17 @@ function App() {
       push({ kind: 'note', text: 'Rejected' });
       void drive(undefined, { reject: [call.id] });
     } else {
-      if (d === 'session') setAutoApprove((s) => new Set(s).add(call.name));
+      if (d === 'session') autoApproveRef.current.add(call.name);
       void drive(undefined, { approve: [call.id] });
     }
   }
 
   return (
     <Box flexDirection="column">
-      <Banner model={model} cwd={process.cwd()} sessionId={sessionId} />
       <Static items={items}>
         {(it, i) => (
           <Box key={i} flexDirection="column" marginBottom={it.kind === 'assistant' ? 1 : 0}>
+            {it.kind === 'banner' && <Banner model={model} cwd={process.cwd()} sessionId={sessionId} />}
             {it.kind === 'user' && <Text color={c.user}>{'> ' + it.text}</Text>}
             {it.kind === 'assistant' && (
               <Box>
