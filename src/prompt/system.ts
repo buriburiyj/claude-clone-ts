@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { platform } from 'node:os';
 import { getMode } from '../permissions/mode.js';
+import { skillsSection } from '../skills/loader.js';
 
 function sh(cmd: string, args: string[]): string {
   try {
@@ -38,7 +39,9 @@ Run one tool at a time and use the result before deciding the next step.
 # Tool usage
 read_file: read before editing. list_dir: explore structure.
 edit_file / write_file: modify files. Requires user approval.
-bash: run shell commands. Requires user approval. Avoid destructive commands.`;
+bash: run shell commands. Requires user approval. Avoid destructive commands.
+read_skill: load a skill's full instructions. Call this first when the task
+matches a skill listed under "Available skills".`;
 
 const PLAN = `
 
@@ -60,5 +63,6 @@ export function buildSystemPrompt(): string {
   return BASE
     + (getMode() === 'plan' ? PLAN : '')
     + `\n\n# Environment\n${env}\n`
+    + skillsSection()
     + projectContext();
 }

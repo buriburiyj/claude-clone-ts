@@ -31,6 +31,7 @@ function summarize(name: string, input: any, out: any): string {
     case 'edit_file': return `Updated ${pathOf(input) ?? 'file'}`;
     case 'list_dir': case 'glob': return `${n} paths`;
     case 'grep': return `Found ${n} matches`;
+    case 'read_skill': return out?.error ? out.error : `Loaded skill: ${out?.name ?? input?.name}`;
     default: return text;
   }
 }
