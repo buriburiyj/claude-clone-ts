@@ -2,6 +2,7 @@ import { wrapAll } from './tools/wrap.js';
 import { bus } from './ui/events.js';
 import React, { useState, useCallback } from 'react';
 import { render, Box, Text, Static, useApp, useInput } from 'ink';
+import { getMode, cycleMode, modeLabel, modeColor, type PermissionMode } from './permissions/mode.js';
 import { MentionInput } from './ui/MentionInput.js';
 import { callModel, stepCountIs } from '@openrouter/agent';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
@@ -72,9 +73,20 @@ function App() {
 
   const push = useCallback((it: Item) => setItems((prev) => [...prev, it]), []);
 
+  const [mode, setModeState] = useState<PermissionMode>(getMode());
+
   useInput((_i, key) => {
     if (key.escape && busy) setBusy(false);
+    if (key.tab && key.shift) setModeState(cycleMode());
   });
+
+  const WRITE_TOOLS = new Set(['edit_file', 'write_file']);
+  const shouldAutoApprove = (name: string) => {
+    const m = getMode();
+    if (m === 'bypassPermissions') return true;
+    if (m === 'acceptEdits' && WRITE_TOOLS.has(name)) return true;
+    return autoApproveRef.current.has(name);
+  };
 
   async function drive(userInput?: string, decision?: { approve?: string[]; reject?: string[] }) {
     setBusy(true);
@@ -134,7 +146,7 @@ function App() {
           const nextPending: PendingCall[] = s?.pendingToolCalls ?? [];
           if (nextPending.length > 0) {
             const call = nextPending[0]!;
-            if (autoApproveRef.current.has(call.name)) {
+            if (shouldAutoApprove(call.name)) {
               setBusy(false);
               await drive(undefined, { approve: [call.id] });
               return;
@@ -248,6 +260,12 @@ function App() {
       )}
 
       {pending && <ApprovalDialog call={pending} onDecide={onDecide} />}
+
+      {mode !== 'default' && (
+
+        <Box marginTop={1}><Text color={modeColor(mode)}>{'\u23F5\u23F5 ' + modeLabel(mode) + ' on '}</Text><Text dimColor>(shift+tab to cycle)</Text></Box>
+
+      )}
 
       {!busy && !pending && (
         <Box borderStyle="round" borderColor={c.border} paddingX={1} marginTop={1}>
