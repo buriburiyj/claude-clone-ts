@@ -2,7 +2,7 @@ import { wrapAll } from './tools/wrap.js';
 import { bus } from './ui/events.js';
 import React, { useState, useCallback } from 'react';
 import { render, Box, Text, Static, useApp, useInput } from 'ink';
-import TextInput from 'ink-text-input';
+import { MentionInput } from './ui/MentionInput.js';
 import { callModel, stepCountIs } from '@openrouter/agent';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
 import { tools } from './tools/index.js';
@@ -17,6 +17,16 @@ import { ApprovalDialog, type PendingCall, type Decision } from './ui/approval.j
 
 
 const wrappedTools = wrapAll(tools as any) as typeof tools;
+const SLASH_COMMANDS = [
+  { name: 'help', description: 'Show available commands' },
+  { name: 'clear', description: 'Clear conversation history' },
+  { name: 'theme', description: 'Switch color theme' },
+  { name: 'sessions', description: 'List past sessions' },
+  { name: 'resume', description: 'Resume a previous session' },
+  { name: 'cost', description: 'Show token usage and cost' },
+  { name: 'exit', description: 'Exit the REPL' },
+];
+
 type Item =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string }
@@ -50,6 +60,7 @@ function App() {
   }, []);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
   const [startedAt, setStartedAt] = useState(0);
   const [tokens, setTokens] = useState(0);
   const [activeTool, setActiveTool] = useState<string | undefined>();
@@ -240,8 +251,14 @@ function App() {
 
       {!busy && !pending && (
         <Box borderStyle="round" borderColor={c.border} paddingX={1} marginTop={1}>
-          <Text color={c.signature}>{'> '}</Text>
-          <TextInput value={input} onChange={setInput} onSubmit={onSubmit} placeholder="Try /help" />
+          <MentionInput
+            value={input}
+            onChange={setInput}
+            onSubmit={(v: string) => { const t = v.trim(); if (t) setHistory((h) => [...h, t]); onSubmit(v); }}
+            placeholder="Try /help"
+            commands={SLASH_COMMANDS}
+            history={history}
+          />
         </Box>
       )}
 
