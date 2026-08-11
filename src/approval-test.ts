@@ -13,7 +13,7 @@ const first = callModel(client, {
   tools,
   state,
   stopWhen: stepCountIs(6),
-});
+} as any);
 await first.getText().catch(() => {});
 await first.getResponse().catch(() => {});
 
@@ -35,7 +35,7 @@ const second = callModel(client, {
   state,
   approveToolCalls: pending.map((p: any) => p.id),
   stopWhen: stepCountIs(6),
-});
+} as any);
 const text = await second.getText();
 await second.getResponse().catch(() => {});
 console.log('\n--- final ---\n' + text);
