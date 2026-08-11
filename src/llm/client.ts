@@ -15,7 +15,7 @@ export function createClient(): OpenRouter {
 /** 502 / ResourceExhausted 처럼 재시도 가치가 있는 에러인지 */
 export function isTransient(err: unknown): boolean {
   const m = err instanceof Error ? err.message : String(err);
-  return /ResourceExhausted|Response failed|502|503|429|rate limit/i.test(m);
+  return /ResourceExhausted|Response failed|Provider returned error|502|503|404|429|rate limit|timeout/i.test(m);
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
