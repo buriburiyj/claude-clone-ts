@@ -8,21 +8,29 @@ const MAX_LINES = 1000;
 
 export const readFileTool = tool({
   name: 'read_file',
-  description: 'Read the contents of a file. Returns up to 1000 lines.',
+  description:
+    'Read a file. Use offset/limit to read only part of a large file; ' +
+    'locate the region with grep first instead of reading the whole file.',
   inputSchema: z.object({
     path: z.string().describe('File path relative to the working directory'),
+    offset: z.number().int().min(1).optional().describe('1-based first line to return'),
+    limit: z.number().int().min(1).optional().describe('max number of lines to return'),
   }),
-  execute: async ({ path: p }) => {
+  execute: async ({ path: p, offset, limit }) => {
     const abs = resolveSafe(p);
     const raw = await fs.readFile(abs, 'utf8');
     const all = raw.split('\n');
-    const truncated = all.length > MAX_LINES;
-    const lines = truncated ? all.slice(0, MAX_LINES) : all;
+    const start = Math.max(0, (offset ?? 1) - 1);
+    const max = Math.min(limit ?? MAX_LINES, MAX_LINES);
+    const lines = all.slice(start, start + max);
+    const end = start + lines.length;
     return {
       path: rel(abs),
       content: lines.join('\n'),
       lines: lines.length,
-      truncated,
+      range: `${start + 1}-${end}`,
+      totalLines: all.length,
+      truncated: end < all.length,
     };
   },
 });
