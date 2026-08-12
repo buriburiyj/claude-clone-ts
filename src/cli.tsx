@@ -30,6 +30,14 @@ const SLASH_COMMANDS = [
   { name: 'exit', description: 'Exit the REPL' },
 ];
 
+
+function matchId(id: string, q: string): boolean {
+  const a = id.toLowerCase();
+  const b = q.trim().toLowerCase().replace(/^conv_/, '');
+  if (!b) return false;
+  return a.startsWith(b) || a.replace(/^conv_/, '').startsWith(b) || a.includes(b);
+}
+
 type Item =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string }
@@ -41,9 +49,15 @@ type Item =
   | { kind: 'banner' };
 
 const client = createClient();
-const sessionId = newSessionId();
-const session = fileState(sessionId);
-const state = session.accessor;
+let sessionId = newSessionId();
+let session = fileState(sessionId);
+let state = session.accessor;
+
+function switchSession(id: string) {
+  sessionId = id;
+  session = fileState(id);
+  state = session.accessor;
+}
 
 function App() {
   const c = getColors();
@@ -214,6 +228,28 @@ function App() {
           const when = new Date(s2.updatedAt).toLocaleString();
           push({ kind: 'note', text: `${s2.id.slice(0, 8)}  ${when}  ${s2.turns} turns  ${s2.cwd.replace(process.env.HOME ?? '', '~')}` });
         }
+      });
+      return;
+    }
+    if (v.startsWith('/resume')) {
+      const arg = v.split(/\s+/)[1];
+      void listSessions().then(async (ss) => {
+        if (!ss.length) return push({ kind: 'note', text: 'no saved sessions' });
+        const target = arg ? ss.find((x) => matchId(x.id, arg)) : ss[0];
+        if (!target) return push({ kind: 'note', text: `no session matching "${arg}"` });
+        switchSession(target.id);
+        const loaded: any = await state.load();
+        const msgs: any[] = loaded?.messages ?? [];
+        setItems([{ kind: 'banner' } as any]);
+        for (const msg of msgs) {
+          const text = typeof msg.content === 'string'
+            ? msg.content
+            : (msg.content ?? []).map((c: any) => c?.text ?? '').filter(Boolean).join('\n');
+          if (!text || msg.type === 'reasoning') continue;
+          if (msg.role === 'user') push({ kind: 'user', text });
+          else if (msg.role === 'assistant') push({ kind: 'assistant', text });
+        }
+        push({ kind: 'note', text: `resumed ${target.id.slice(0, 8)} · ${msgs.length} messages` });
       });
       return;
     }
