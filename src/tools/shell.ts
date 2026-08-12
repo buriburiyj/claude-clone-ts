@@ -1,11 +1,12 @@
 import { execFile } from 'node:child_process';
 import { tool } from '@openrouter/agent';
 import { z } from 'zod';
+import { clampOutput } from './truncate.js';
 
-const MAX_OUT = 30_000;
+const MAX_OUT = 8000_000;
 
 function clip(s: string): string {
-  return s.length > MAX_OUT ? s.slice(0, MAX_OUT) + '\n… (truncated)' : s;
+  return clampOutput(s, MAX_OUT).text;
 }
 
 export const bashTool = tool({
