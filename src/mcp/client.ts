@@ -6,6 +6,15 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema';
 import { z } from 'zod';
 
+// 자체 툴과 중복되는 MCP 툴은 제외 (컨텍스트 절약)
+const MCP_DENY = new Set([
+  'read_file', 'read_text_file', 'read_multiple_files',
+  'write_file', 'edit_file',
+  'list_directory', 'list_directory_with_sizes',
+  'search_files', 'list_allowed_directories',
+]);
+
+
 type ServerCfg = { command: string; args?: string[]; env?: Record<string, string> };
 
 export type McpStatus = { name: string; count: number; error?: string };
@@ -48,7 +57,7 @@ async function connectOne(name: string, cfg: ServerCfg): Promise<any[]> {
   clients.set(name, client);
 
   const listed = await client.listTools();
-  return (listed.tools ?? []).map((t: any) => ({
+  return (listed.tools ?? []).filter((t: any) => !MCP_DENY.has(t.name)).map((t: any) => ({
     type: 'function',
     _mcp: true,
     function: {

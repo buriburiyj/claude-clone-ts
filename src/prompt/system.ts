@@ -39,6 +39,8 @@ Run one tool at a time and use the result before deciding the next step.
 # Tool usage
 read_file: read before editing. list_dir: explore structure.
 edit_file / write_file: modify files. Requires user approval.
+grep: search file contents by regex. glob: find files by pattern.
+Use grep/glob to locate code before reading files. Never read a whole large file to find one symbol.
 bash: run shell commands. Requires user approval. Avoid destructive commands.
 read_skill: load a skill's full instructions. Call this first when the task
 matches a skill listed under "Available skills".`;

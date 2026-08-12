@@ -29,6 +29,7 @@ const SLASH_COMMANDS = [
   { name: 'resume', description: 'Resume a previous session' },
   { name: 'cost', description: 'Show token usage and cost' },
   { name: 'context', description: 'Show context window usage' },
+  { name: 'compact', description: 'Summarize and compact the conversation' },
   { name: 'exit', description: 'Exit the REPL' },
 ];
 
@@ -97,6 +98,10 @@ function App() {
   const [sid, setSid] = useState<string>(sessionId);
   const [staticKey, setStaticKey] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const carryRef = React.useRef<string>('');
+  const ctrlCRef = React.useRef<number>(0);
+  const genRef = React.useRef<number>(0);
+  const abortRef = React.useRef<AbortController | null>(null);
 
   React.useEffect(() => {
     const onTool = (ev: any) => {
@@ -128,7 +133,15 @@ function App() {
   const [mode, setModeState] = useState<PermissionMode>(getMode());
 
   useInput((_i, key) => {
-    if (key.escape && busy) setBusy(false);
+    if (key.ctrl && _i === 'c') {
+      const now = Date.now();
+      if (now - ctrlCRef.current < 2000) { exit(); process.exit(0); }
+      ctrlCRef.current = now;
+      if (busy) { genRef.current++; setBusy(false); push({ kind: 'note', text: 'Interrupted \u00b7 press Ctrl+C again to exit' }); }
+      else push({ kind: 'note', text: 'Press Ctrl+C again to exit' });
+      return;
+    }
+    if (key.escape && busy) { genRef.current++; setBusy(false); }
     if (key.tab && key.shift) setModeState(cycleMode());
     if (key.ctrl && _i === 'o') {
       setExpanded((e) => !e);
@@ -147,6 +160,14 @@ function App() {
   };
 
   async function drive(userInput?: string, decision?: { approve?: string[]; reject?: string[] }) {
+    const myGen = ++genRef.current;
+    const alive = () => genRef.current === myGen;
+    const ac = new AbortController();
+    abortRef.current = ac;
+    if (userInput && carryRef.current) {
+      userInput = '<previous-conversation-summary>\n' + carryRef.current + '\n</previous-conversation-summary>\n\n' + userInput;
+      carryRef.current = '';
+    }
     setBusy(true);
     setStartedAt(Date.now());
     setActiveTool(undefined);
@@ -160,6 +181,7 @@ function App() {
             model: m,
             ...(userInput ? { input: userInput } : {}),
             instructions: buildSystemPrompt(),
+            signal: ac.signal,
             tools: wrappedTools,
             state,
             ...(decision?.approve ? { approveToolCalls: decision.approve } : {}),
@@ -195,11 +217,12 @@ function App() {
           }
 
           await pump;
+          if (!alive()) return;
           const text = await result.getText().catch(() => '');
           await result.getResponse().catch(() => {});
           const usage = await result.getUsage().catch(() => null);
           if (usage) setTokens((usage as any).totalTokens ?? 0);
-          if (text.trim()) push({ kind: 'assistant', text: text.trim() });
+          if (alive() && text.trim()) push({ kind: 'assistant', text: text.trim() });
 
           const s = (await state.load()) as any;
           const nextPending: PendingCall[] = s?.pendingToolCalls ?? [];
@@ -250,7 +273,7 @@ function App() {
     setBusy(false);
   }
 
-  function onSubmit(value: string) {
+  async function onSubmit(value: string) {
     const v = value.trim();
     setInput('');
     if (!v) return;
@@ -321,6 +344,41 @@ function App() {
         else if (err) push({ kind: 'error', text: err.message });
         else push({ kind: 'result', text: '(no output)' });
       });
+      return;
+    }
+    if (v === '/compact') {
+      const before: any = await state.load();
+      const msgs: any[] = before?.messages ?? [];
+      if (msgs.length === 0) { push({ kind: 'note', text: 'nothing to compact' }); return; }
+      const transcript = msgs.map((mm: any) => {
+        const role = mm.role ?? mm.type ?? '?';
+        const body = typeof mm.content === 'string'
+          ? mm.content
+          : Array.isArray(mm.content) ? mm.content.map((x: any) => x?.text ?? '').join(' ') : '';
+        return body ? role + ': ' + body : '';
+      }).filter(Boolean).join('\n').slice(-24000);
+      push({ kind: 'note', text: 'compacting\u2026' });
+      setBusy(true);
+      try {
+        const r = callModel(client, {
+          model: modelRef.current,
+          input: 'Summarize this coding session transcript. Sections: Goal, Done, In progress, Key files and decisions, Next step. Be dense and factual. No preamble.\n\n' + transcript,
+          stopWhen: stepCountIs(1),
+        } as any);
+        const summary = (await (r as any).getText().catch(() => '')).trim();
+        if (!summary) throw new Error('empty summary');
+        carryRef.current = summary;
+        const nid = newSessionId();
+        switchSession(nid);
+        setSid(nid);
+        process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
+        setItems([{ kind: 'banner' }, { kind: 'note', text: 'compacted \u00b7 ' + msgs.length + ' messages \u2192 summary' }, { kind: 'assistant', text: summary }]);
+        setStaticKey((k) => k + 1);
+        setTokens(0);
+      } catch (e: any) {
+        push({ kind: 'error', text: 'compact failed: ' + (e?.message ?? String(e)) });
+      }
+      setBusy(false);
       return;
     }
     if (v === '/context') {
@@ -409,7 +467,7 @@ function App() {
           <MentionInput
             value={input}
             onChange={setInput}
-            onSubmit={(v: string) => { const t = v.trim(); if (t) setHistory((h) => [...h, t]); onSubmit(v); }}
+            onSubmit={(v: string) => { const t = v.trim(); if (t) setHistory((h) => [...h, t]); void onSubmit(v); }}
             placeholder="Try /help"
             commands={SLASH_COMMANDS}
             history={history}
@@ -434,7 +492,7 @@ async function main() {
       ? `  MCP ${st.name}: failed (${st.error})\n`
       : `  MCP ${st.name}: ${st.count} tools\n`);
   }
-  const app = render(<App />);
+  const app = render(<App />, { exitOnCtrlC: false });
   await app.waitUntilExit();
   await closeMcp();
 }
