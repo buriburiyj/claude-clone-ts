@@ -18,6 +18,7 @@ import { ClaudeSpinner } from './ui/spinner.js';
 import { ToolCallLine, ToolResultLines, ErrorLine, summarize } from './ui/render.js';
 import { DiffView } from './ui/diff.js';
 import { ApprovalDialog, type PendingCall, type Decision } from './ui/approval.js';
+import { renderMarkdown } from './ui/markdown.js';
 
 
 const wrappedTools: any[] = wrapAll([...tools] as any);
@@ -434,9 +435,9 @@ function App() {
             {it.kind === 'banner' && <Banner model={model} cwd={process.cwd()} sessionId={sid} />}
             {it.kind === 'user' && <Text color={c.user}>{'> ' + it.text}</Text>}
             {it.kind === 'assistant' && (
-              <Box>
+              <Box flexDirection="column">
                 <Text color={c.signature}>{'⏺ '}</Text>
-                <Text>{it.text}</Text>
+                <Text>{renderMarkdown(it.text)}</Text>
               </Box>
             )}
             {it.kind === 'tool' && <ToolCallLine name={it.name} args={it.args} />}
