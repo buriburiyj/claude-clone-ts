@@ -65,6 +65,8 @@ function App() {
   const c = getColors();
   const { exit } = useApp();
   const [items, setItems] = useState<Item[]>([{ kind: 'banner' }]);
+  const [sid, setSid] = useState<string>(sessionId);
+  const [staticKey, setStaticKey] = useState(0);
 
   React.useEffect(() => {
     const onTool = (ev: any) => {
@@ -219,7 +221,9 @@ function App() {
     if (!v) return;
     if (v === '/exit' || v === '/quit') return exit();
     if (v === '/clear') {
+      process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
       setItems([{ kind: 'banner' }]);
+      setStaticKey((k) => k + 1);
       setTokens(0);
       return;
     }
@@ -257,6 +261,7 @@ function App() {
         const loaded: any = await state.load();
         const msgs: any[] = loaded?.messages ?? [];
         setItems([{ kind: 'banner' } as any]);
+        setStaticKey((k) => k + 1);
         for (const msg of msgs) {
           const text = typeof msg.content === 'string'
             ? msg.content
@@ -265,6 +270,7 @@ function App() {
           if (msg.role === 'user') push({ kind: 'user', text });
           else if (msg.role === 'assistant') push({ kind: 'assistant', text });
         }
+        setSid(target.id);
         push({ kind: 'note', text: `resumed ${target.id.slice(0, 8)} · ${msgs.length} messages` });
       });
       return;
@@ -305,10 +311,10 @@ function App() {
 
   return (
     <Box flexDirection="column">
-      <Static items={items}>
+      <Static key={staticKey} items={items}>
         {(it, i) => (
           <Box key={i} flexDirection="column" marginBottom={it.kind === 'assistant' ? 1 : 0}>
-            {it.kind === 'banner' && <Banner model={model} cwd={process.cwd()} sessionId={sessionId} />}
+            {it.kind === 'banner' && <Banner model={model} cwd={process.cwd()} sessionId={sid} />}
             {it.kind === 'user' && <Text color={c.user}>{'> ' + it.text}</Text>}
             {it.kind === 'assistant' && (
               <Box>
