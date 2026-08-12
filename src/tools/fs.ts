@@ -21,7 +21,8 @@ export const readFileTool = tool({
     const raw = await fs.readFile(abs, 'utf8');
     const all = raw.split('\n');
     const start = Math.max(0, (offset ?? 1) - 1);
-    const max = Math.min(limit ?? MAX_LINES, MAX_LINES);
+    const DEFAULT_LIMIT = 200;
+    const max = Math.min(limit ?? DEFAULT_LIMIT, MAX_LINES);
     const lines = all.slice(start, start + max);
     const end = start + lines.length;
     return {
@@ -31,6 +32,9 @@ export const readFileTool = tool({
       range: `${start + 1}-${end}`,
       totalLines: all.length,
       truncated: end < all.length,
+      ...(end < all.length
+        ? { hint: `${all.length - end} more lines. Re-read with offset/limit for the region you need.` }
+        : {}),
     };
   },
 });

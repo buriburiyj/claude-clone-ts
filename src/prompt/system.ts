@@ -41,6 +41,7 @@ read_file: read before editing. list_dir: explore structure.
 edit_file / write_file: modify files. Requires user approval.
 grep: search file contents by regex. glob: find files by pattern.
 Use grep/glob to locate code before reading files. Never read a whole large file to find one symbol.
+After grep gives you file:line, read that region with read_file offset/limit (e.g. offset: line - 20, limit: 60).
 bash: run shell commands. Requires user approval. Avoid destructive commands.
 read_skill: load a skill's full instructions. Call this first when the task
 matches a skill listed under "Available skills".`;
