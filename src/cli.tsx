@@ -38,6 +38,8 @@ function matchId(id: string, q: string): boolean {
   return a.startsWith(b) || a.replace(/^conv_/, '').startsWith(b) || a.includes(b);
 }
 
+const PLAN_BLOCK = '\u23F8 plan mode \u2014 ';
+
 type Item =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string }
@@ -83,6 +85,8 @@ function App() {
   const [activeTool, setActiveTool] = useState<string | undefined>();
   const [pending, setPending] = useState<PendingCall | null>(null);
   const autoApproveRef = React.useRef<Set<string>>(new Set());
+  const [queue, setQueue] = useState<PendingCall[]>([]);
+  const decisionsRef = React.useRef<{ approve: string[]; reject: string[] }>({ approve: [], reject: [] });
   const [model, setModel] = useState<string>(MODELS[0]!);
   const modelRef = React.useRef<string>(MODELS[0]!);
   const [, setThemeTick] = useState(0);
@@ -101,6 +105,7 @@ function App() {
     const m = getMode();
     if (m === 'bypassPermissions') return true;
     if (m === 'acceptEdits' && WRITE_TOOLS.has(name)) return true;
+    if (!name) return false;
     return autoApproveRef.current.has(name);
   };
 
@@ -162,16 +167,27 @@ function App() {
           const s = (await state.load()) as any;
           const nextPending: PendingCall[] = s?.pendingToolCalls ?? [];
           if (nextPending.length > 0) {
-            const call = nextPending[0]!;
-            if (getMode() === 'plan' && WRITE_TOOLS.has(call.name)) {
-              push({ kind: 'note', text: '⏸ plan mode — ' + call.name + ' blocked' });
-              void drive(undefined, { reject: [call.id] });
-            } else if (shouldAutoApprove(call.name)) {
+            const approve: string[] = [];
+            const reject: string[] = [];
+            const ask: PendingCall[] = [];
+            for (const call of nextPending) {
+              if (getMode() === 'plan' && WRITE_TOOLS.has(call.name)) {
+                push({ kind: 'note', text: PLAN_BLOCK + call.name + ' blocked' });
+                reject.push(call.id);
+              } else if (shouldAutoApprove(call.name)) {
+                approve.push(call.id);
+              } else {
+                ask.push(call);
+              }
+            }
+            if (ask.length === 0) {
               setBusy(false);
-              await drive(undefined, { approve: [call.id] });
+              await drive(undefined, { approve, reject });
               return;
             }
-            setPending(call);
+            decisionsRef.current = { approve, reject };
+            setQueue(ask);
+            setPending(ask[0]!);
             setBusy(false);
             return;
           }
@@ -263,14 +279,28 @@ function App() {
 
   function onDecide(d: Decision) {
     const call = pending!;
-    setPending(null);
+    const dec = decisionsRef.current;
     if (d === 'reject') {
-      push({ kind: 'note', text: 'Rejected' });
-      void drive(undefined, { reject: [call.id] });
+      push({ kind: 'note', text: 'Rejected ' + call.name });
+      dec.reject.push(call.id);
     } else {
-      if (d === 'session') autoApproveRef.current.add(call.name);
-      void drive(undefined, { approve: [call.id] });
+      if (d === 'session' && call.name) autoApproveRef.current.add(call.name);
+      dec.approve.push(call.id);
     }
+    let rest = queue.slice(1);
+    while (rest.length > 0 && shouldAutoApprove(rest[0]!.name)) {
+      dec.approve.push(rest[0]!.id);
+      rest = rest.slice(1);
+    }
+    if (rest.length > 0) {
+      setQueue(rest);
+      setPending(rest[0]!);
+      return;
+    }
+    setQueue([]);
+    setPending(null);
+    decisionsRef.current = { approve: [], reject: [] };
+    void drive(undefined, { approve: dec.approve, reject: dec.reject });
   }
 
   return (
