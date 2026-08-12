@@ -1,4 +1,5 @@
 import { wrapAll } from './tools/wrap.js';
+import { loadMcpTools, mcpStatus, closeMcp } from './mcp/client.js';
 import { bus } from './ui/events.js';
 import React, { useState, useCallback } from 'react';
 import { render, Box, Text, Static, useApp, useInput } from 'ink';
@@ -18,7 +19,7 @@ import { DiffView } from './ui/diff.js';
 import { ApprovalDialog, type PendingCall, type Decision } from './ui/approval.js';
 
 
-const wrappedTools = wrapAll(tools as any) as typeof tools;
+const wrappedTools: any[] = wrapAll([...tools] as any);
 const SLASH_COMMANDS = [
   { name: 'help', description: 'Show available commands' },
   { name: 'clear', description: 'Clear conversation history' },
@@ -294,4 +295,17 @@ function App() {
 
 if (process.argv.includes('--dangerously-skip-permissions')) setMode('bypassPermissions');
 
-render(<App />);
+async function main() {
+  const mcp = await loadMcpTools();
+  if (mcp.length) wrappedTools.push(...wrapAll(mcp));
+  for (const st of mcpStatus) {
+    process.stdout.write(st.error
+      ? `  MCP ${st.name}: failed (${st.error})\n`
+      : `  MCP ${st.name}: ${st.count} tools\n`);
+  }
+  const app = render(<App />);
+  await app.waitUntilExit();
+  await closeMcp();
+}
+
+void main();
