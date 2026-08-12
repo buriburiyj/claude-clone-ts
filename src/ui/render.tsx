@@ -48,9 +48,9 @@ export function summarize(name: string, result: any): string {
 
 const MAX_RESULT_LINES = 5;
 
-export function ToolResultLines({ text }: { text: string }) {
+export function ToolResultLines({ text, expanded }: { text: string; expanded?: boolean }) {
   const all = text.split('\n');
-  const shown = all.slice(0, MAX_RESULT_LINES);
+  const shown = expanded ? all : all.slice(0, MAX_RESULT_LINES);
   const hidden = all.length - shown.length;
   return (
     <Box flexDirection="column">

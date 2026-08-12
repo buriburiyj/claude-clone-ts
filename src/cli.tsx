@@ -96,6 +96,7 @@ function App() {
   const [items, setItems] = useState<Item[]>([{ kind: 'banner' }]);
   const [sid, setSid] = useState<string>(sessionId);
   const [staticKey, setStaticKey] = useState(0);
+  const [expanded, setExpanded] = useState(false);
 
   React.useEffect(() => {
     const onTool = (ev: any) => {
@@ -129,6 +130,11 @@ function App() {
   useInput((_i, key) => {
     if (key.escape && busy) setBusy(false);
     if (key.tab && key.shift) setModeState(cycleMode());
+    if (key.ctrl && _i === 'o') {
+      setExpanded((e) => !e);
+      process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
+      setStaticKey((k) => k + 1);
+    }
   });
 
   const WRITE_TOOLS = new Set(['edit_file', 'write_file']);
@@ -376,7 +382,7 @@ function App() {
               </Box>
             )}
             {it.kind === 'tool' && <ToolCallLine name={it.name} args={it.args} />}
-            {it.kind === 'result' && <ToolResultLines text={it.text} />}
+            {it.kind === 'result' && <ToolResultLines text={it.text} expanded={expanded} />}
             {it.kind === 'diff' && <DiffView oldText={it.oldText} newText={it.newText} />}
             {it.kind === 'error' && <ErrorLine text={it.text} />}
             {it.kind === 'note' && <Text dimColor>{'  ' + it.text}</Text>}
