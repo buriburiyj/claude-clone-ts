@@ -27,6 +27,7 @@ const SLASH_COMMANDS = [
   { name: 'sessions', description: 'List past sessions' },
   { name: 'resume', description: 'Resume a previous session' },
   { name: 'cost', description: 'Show token usage and cost' },
+  { name: 'context', description: 'Show context window usage' },
   { name: 'exit', description: 'Exit the REPL' },
 ];
 
@@ -39,6 +40,33 @@ function matchId(id: string, q: string): boolean {
 }
 
 const PLAN_BLOCK = '\u23F8 plan mode \u2014 ';
+
+
+const CTX_LIMITS: Record<string, number> = {
+  'nemotron-3-ultra-550b-a55b': 128000,
+  'nemotron-3-super-120b-a12b': 128000,
+  'gpt-oss-20b': 131072,
+};
+function ctxLimit(model: string): number {
+  const short = model.split('/')[1]?.replace(':free', '') ?? model;
+  return CTX_LIMITS[short] ?? 128000;
+}
+function bar(used: number, total: number, width = 20): string {
+  const filled = Math.min(width, Math.round((used / total) * width));
+  return '\u2588'.repeat(filled) + '\u2591'.repeat(width - filled);
+}
+function toolsTokens(ts: any[]): number {
+  let n = 0;
+  for (const t of ts) {
+    const f = t?.function ?? t;
+    n += approxTokens(String(f?.name ?? '')) + approxTokens(String(f?.description ?? ''));
+    try { n += approxTokens(JSON.stringify(f?.inputSchema ?? {})); } catch { n += 20; }
+  }
+  return n;
+}
+function approxTokens(t: string): number {
+  return Math.ceil(t.length / 3.5);
+}
 
 type Item =
   | { kind: 'user'; text: string }
@@ -260,6 +288,7 @@ function App() {
         switchSession(target.id);
         const loaded: any = await state.load();
         const msgs: any[] = loaded?.messages ?? [];
+        process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
         setItems([{ kind: 'banner' } as any]);
         setStaticKey((k) => k + 1);
         for (const msg of msgs) {
@@ -273,6 +302,17 @@ function App() {
         setSid(target.id);
         push({ kind: 'note', text: `resumed ${target.id.slice(0, 8)} · ${msgs.length} messages` });
       });
+      return;
+    }
+    if (v === '/context') {
+      const limit = ctxLimit(model);
+      const sys = approxTokens(buildSystemPrompt());
+      const tls = toolsTokens(wrappedTools as any[]);
+      const baseline = sys + tls;
+      const used = Math.max(tokens, baseline);
+      const pct = Math.round((used / limit) * 100);
+      push({ kind: 'note', text: `context  ${bar(used, limit)}  ${used.toLocaleString()} / ${limit.toLocaleString()} (${pct}%)` });
+      push({ kind: 'note', text: `  system ~${sys.toLocaleString()} · tools ~${tls.toLocaleString()} (${wrappedTools.length}) · messages ~${Math.max(0, used - baseline).toLocaleString()} · free ${(limit - used).toLocaleString()}` });
       return;
     }
     if (v === '/cost') {
