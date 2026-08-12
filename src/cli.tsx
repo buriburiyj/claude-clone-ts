@@ -3,6 +3,7 @@ import { loadMcpTools, mcpStatus, closeMcp } from './mcp/client.js';
 import { bus } from './ui/events.js';
 import React, { useState, useCallback } from 'react';
 import { render, Box, Text, Static, useApp, useInput } from 'ink';
+import { execFile } from 'node:child_process';
 import { buildSystemPrompt } from './prompt/system.js';
 import { setMode, getMode, cycleMode, modeLabel, modeColor, type PermissionMode } from './permissions/mode.js';
 import { MentionInput } from './ui/MentionInput.js';
@@ -301,6 +302,18 @@ function App() {
         }
         setSid(target.id);
         push({ kind: 'note', text: `resumed ${target.id.slice(0, 8)} · ${msgs.length} messages` });
+      });
+      return;
+    }
+    if (v.startsWith('!')) {
+      const cmd = v.slice(1).trim();
+      if (!cmd) return;
+      push({ kind: 'tool', name: 'Bash', args: { command: cmd } });
+      execFile(process.env.SHELL ?? '/bin/sh', ['-c', cmd], { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024, timeout: 120000 }, (err, stdout, stderr) => {
+        const out = ((stdout ?? '') + (stderr ?? '')).trimEnd();
+        if (out) push({ kind: 'result', text: out.length > 4000 ? out.slice(0, 4000) + '\n\u2026 truncated' : out });
+        else if (err) push({ kind: 'error', text: err.message });
+        else push({ kind: 'result', text: '(no output)' });
       });
       return;
     }
