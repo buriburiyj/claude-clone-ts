@@ -30,7 +30,7 @@ export function renderMarkdown(text: string): string {
   const width = Math.max(40, (process.stdout.columns ?? 80) - 4);
   try {
     const out = instance(width).parse(text, { async: false }) as string;
-    return out.replace(/\n{3,}/g, '\n\n').trimEnd();
+    return out.replace(/\n{3,}/g, '\n\n').trimEnd().split('\n').map((l) => (l ? '  ' + l : l)).join('\n');
   } catch {
     return text;
   }
