@@ -220,10 +220,14 @@ function App() {
           await pump;
           if (!alive()) return;
           const text = await result.getText().catch(() => '');
-          await result.getResponse().catch(() => {});
+          const resp: any = await result.getResponse().catch(() => null);
+          const fr: string | undefined =
+            resp?.finishReason ?? resp?.finish_reason ?? resp?.incomplete_details?.reason;
           const usage = await result.getUsage().catch(() => null);
           if (usage) setTokens((usage as any).totalTokens ?? 0);
           if (alive() && text.trim()) push({ kind: 'assistant', text: text.trim() });
+          if (alive() && fr && fr !== 'stop' && fr !== 'tool_calls')
+            push({ kind: 'note', text: `output cut off (${fr})` });
 
           const s = (await state.load()) as any;
           const nextPending: PendingCall[] = s?.pendingToolCalls ?? [];
