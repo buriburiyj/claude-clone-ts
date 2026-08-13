@@ -17,8 +17,14 @@ export function displayName(name: string): string {
 }
 
 export function mainArg(args: Record<string, unknown>): string {
-  const v = args.path ?? args.command ?? '';
-  const s = String(v);
+  const a: any = args ?? {};
+  let s = String(a.path ?? a.file_path ?? a.filePath ?? a.pattern ?? a.command ?? a.name ?? '');
+  if (a.path && a.offset) {
+    const start = Number(a.offset);
+    const end = a.limit ? start + Number(a.limit) - 1 : undefined;
+    s += end ? `:${start}-${end}` : `:${start}+`;
+  }
+  if (a.pattern && a.glob) s += `, ${a.glob}`;
   return s.length > 60 ? s.slice(0, 57) + '…' : s;
 }
 
