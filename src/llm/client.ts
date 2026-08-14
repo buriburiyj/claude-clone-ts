@@ -1,6 +1,7 @@
 import { OpenRouter } from '@openrouter/sdk';
 
 export const MODELS = [
+  'openai/gpt-oss-20b:free',
   'nvidia/nemotron-3-ultra-550b-a55b:free',
   'nvidia/nemotron-3-super-120b-a12b:free',
   'openai/gpt-oss-20b:free',

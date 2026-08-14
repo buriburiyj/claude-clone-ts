@@ -101,6 +101,8 @@ function App() {
   const [expanded, setExpanded] = useState(false);
   const carryRef = React.useRef<string>('');
   const ctrlCRef = React.useRef<number>(0);
+  const snapsRef = React.useRef<Array<{ state: any; items: Item[] }>>([]);
+  const escRef = React.useRef<number>(0);
   const genRef = React.useRef<number>(0);
   const abortRef = React.useRef<AbortController | null>(null);
 
@@ -142,7 +144,22 @@ function App() {
       else push({ kind: 'note', text: 'Press Ctrl+C again to exit' });
       return;
     }
-    if (key.escape && busy) { genRef.current++; setBusy(false); }
+    if (key.escape && busy) { genRef.current++; abortRef.current?.abort(); setBusy(false); }
+    else if (key.escape && !busy) {
+      const now = Date.now();
+      if (now - escRef.current < 600) {
+        escRef.current = 0;
+        const snap = snapsRef.current.pop();
+        if (!snap) { push({ kind: 'note', text: 'nothing to rewind' }); return; }
+        void state.save(snap.state);
+        process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
+        setItems([...snap.items, { kind: 'note', text: 'rewound one turn' } as Item]);
+        setStaticKey((k) => k + 1);
+      } else {
+        escRef.current = now;
+        push({ kind: 'note', text: 'press esc again to rewind one turn' });
+      }
+    }
     if (key.tab && key.shift) setModeState(cycleMode());
     if (key.ctrl && _i === 'o') {
       setExpanded((e) => !e);
@@ -401,6 +418,11 @@ function App() {
       push({ kind: 'note', text: `${tokens} tokens this session · $0.00 (free tier)` });
       return;
     }
+    try {
+      const snap = await state.load();
+      snapsRef.current.push({ state: snap, items });
+      if (snapsRef.current.length > 10) snapsRef.current.shift();
+    } catch {}
     push({ kind: 'user', text: v });
     void drive(v);
   }
