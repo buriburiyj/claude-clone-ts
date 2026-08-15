@@ -8,6 +8,8 @@ import { buildSystemPrompt } from './prompt/system.js';
 import { setMode, getMode, cycleMode, modeLabel, modeColor, type PermissionMode } from './permissions/mode.js';
 import { MentionInput } from './ui/MentionInput.js';
 import { callModel, stepCountIs } from '@openrouter/agent';
+import { isTrusted, trust, isRisky } from './permissions/trust.js';
+import { TrustDialog } from './ui/trust.jsx';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
 import { tools } from './tools/index.js';
 import { fileState, newSessionId, listSessions } from './session/store.js';
@@ -30,6 +32,7 @@ const SLASH_COMMANDS = [
   { name: 'resume', description: 'Resume a previous session' },
   { name: 'cost', description: 'Show token usage and cost' },
   { name: 'context', description: 'Show context window usage' },
+  { name: 'model', description: 'Show or switch the model' },
   { name: 'compact', description: 'Summarize and compact the conversation' },
   { name: 'exit', description: 'Exit the REPL' },
 ];
@@ -445,6 +448,34 @@ function App() {
       });
       return;
     }
+    if (v === '/model' || v.startsWith('/model ')) {
+      const arg = v.slice('/model'.length).trim();
+      if (arg === '') {
+        push({ kind: 'note', text: 'current: ' + modelRef.current });
+        MODELS.forEach((m, i) => {
+          push({ kind: 'note', text: '  ' + (i + 1) + '. ' + m + (m === modelRef.current ? '  <-' : '') });
+        });
+        push({ kind: 'note', text: 'usage: /model 2   or   /model super' });
+        return;
+      }
+      const list = MODELS as readonly string[];
+      const n = Number(arg);
+      let picked: string | undefined;
+      if (Number.isInteger(n) && n >= 1 && n <= list.length) {
+        picked = list[n - 1];
+      } else {
+        const q = arg.toLowerCase();
+        picked = list.find((m) => m.toLowerCase().includes(q));
+      }
+      if (picked === undefined) {
+        push({ kind: 'error', text: 'no model matches: ' + arg });
+        return;
+      }
+      modelRef.current = picked;
+      setModel(picked);
+      push({ kind: 'note', text: 'model: ' + picked + '  (ctx ' + ctxLimit(picked).toLocaleString() + ')' });
+      return;
+    }
     if (v === '/compact') { await runCompact(false); return; }
     if (v === '/context') {
       const limit = ctxLimit(model);
@@ -554,7 +585,29 @@ function App() {
 
 if (process.argv.includes('--dangerously-skip-permissions')) setMode('bypassPermissions');
 
+async function askTrust(dir: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const inst = render(
+      <TrustDialog
+        dir={dir.replace(process.env.HOME ?? '', '~')}
+        risky={isRisky(dir)}
+        onDecide={(ok) => { inst.unmount(); resolve(ok); }}
+      />,
+      { exitOnCtrlC: false },
+    );
+  });
+}
+
 async function main() {
+  const cwd = process.cwd();
+  if (!(await isTrusted(cwd))) {
+    const ok = await askTrust(cwd);
+    if (!ok) {
+      process.stdout.write('  not trusted, exiting\n');
+      return;
+    }
+    await trust(cwd);
+  }
   const mcp = await loadMcpTools();
   if (mcp.length) wrappedTools.push(...wrapAll(mcp));
   for (const st of mcpStatus) {
