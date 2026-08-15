@@ -50,6 +50,7 @@ const CTX_LIMITS: Record<string, number> = {
   'nemotron-3-super-120b-a12b': 128000,
   'gpt-oss-20b': 131072,
 };
+const AUTO_COMPACT_AT = 0.8;
 function ctxLimit(model: string): number {
   const short = model.split('/')[1]?.replace(':free', '') ?? model;
   return CTX_LIMITS[short] ?? 128000;
@@ -122,6 +123,8 @@ function App() {
   const [history, setHistory] = useState<string[]>([]);
   const [startedAt, setStartedAt] = useState(0);
   const [tokens, setTokens] = useState(0);
+  const tokensRef = React.useRef(0);
+  const compactingRef = React.useRef(false);
   const [activeTool, setActiveTool] = useState<string | undefined>();
   const [pending, setPending] = useState<PendingCall | null>(null);
   const autoApproveRef = React.useRef<Set<string>>(new Set());
@@ -176,6 +179,79 @@ function App() {
     if (!name) return false;
     return autoApproveRef.current.has(name);
   };
+
+  async function runCompact(auto: boolean) {
+      const before: any = await state.load();
+      const msgs: any[] = before?.messages ?? [];
+      if (msgs.length === 0) {
+        if (auto === false) push({ kind: 'note', text: 'nothing to compact' });
+        return;
+      }
+      const transcript = msgs.map((mm: any) => {
+        const role = mm.role ?? mm.type ?? '?';
+        const body = typeof mm.content === 'string'
+          ? mm.content
+          : Array.isArray(mm.content) ? mm.content.map((x: any) => x?.text ?? '').join(' ') : '';
+        return body ? role + ': ' + body : '';
+      }).filter(Boolean).join('\n').slice(-24000);
+      if (auto === false) push({ kind: 'note', text: 'compacting\u2026' });
+      setBusy(true);
+      try {
+        const r = callModel(client, {
+          model: modelRef.current,
+          input: 'Summarize this coding session transcript. Sections: Goal, Done, In progress, Key files and decisions, Next step. Be dense and factual. No preamble.\n\n' + transcript,
+          stopWhen: stepCountIs(1),
+        } as any);
+        const summary = (await (r as any).getText().catch(() => '')).trim();
+        if (!summary) throw new Error('empty summary');
+        carryRef.current = summary;
+        const nid = newSessionId();
+        switchSession(nid);
+        setSid(nid);
+        process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
+        setItems([{ kind: 'banner' }, { kind: 'note', text: (auto ? 'auto-compacted \u00b7 ' : 'compacted \u00b7 ') + msgs.length + ' messages \u2192 summary' }, { kind: 'assistant', text: summary }]);
+        setStaticKey((k) => k + 1);
+        setTokens(0);
+        tokensRef.current = 0;
+      } catch (e: any) {
+        if (auto === false) push({ kind: 'error', text: 'compact failed: ' + (e?.message ?? String(e)) });
+      }
+      setBusy(false);
+      return;
+    }
+
+  async function estimateUsed(): Promise<number> {
+    const baseline = approxTokens(buildSystemPrompt()) + toolsTokens(wrappedTools as any[]);
+    if (tokensRef.current > 0) return Math.max(tokensRef.current, baseline);
+    let msgTokens = 0;
+    try {
+      const st: any = await state.load();
+      for (const mm of (st?.messages ?? [])) {
+        const c = mm?.content;
+        const body = typeof c === 'string'
+          ? c
+          : Array.isArray(c) ? c.map((x: any) => x?.text ?? JSON.stringify(x ?? '')).join(' ') : '';
+        msgTokens += approxTokens(String(body));
+      }
+    } catch (e) {}
+    return baseline + msgTokens;
+  }
+
+  async function maybeAutoCompact() {
+    if (compactingRef.current) return;
+    const limit = ctxLimit(modelRef.current);
+    const used = await estimateUsed();
+    const pct = used / limit;
+    if (pct < AUTO_COMPACT_AT) return;
+    compactingRef.current = true;
+    try {
+      push({ kind: 'note', text: `auto-compacting at ${Math.round(pct * 100)}%` });
+      await runCompact(true);
+    } catch (e) {
+    } finally {
+      compactingRef.current = false;
+    }
+  }
 
   async function drive(userInput?: string, decision?: { approve?: string[]; reject?: string[] }) {
     const myGen = ++genRef.current;
@@ -241,7 +317,7 @@ function App() {
           const fr: string | undefined =
             resp?.finishReason ?? resp?.finish_reason ?? resp?.incomplete_details?.reason;
           const usage = await result.getUsage().catch(() => null);
-          if (usage) setTokens((usage as any).totalTokens ?? 0);
+          if (usage) { const tt = (usage as any).totalTokens ?? 0; setTokens(tt); tokensRef.current = tt; }
           if (alive() && text.trim()) push({ kind: 'assistant', text: text.trim() });
           if (alive() && fr && fr !== 'stop' && fr !== 'tool_calls')
             push({ kind: 'note', text: `output cut off (${fr})` });
@@ -275,6 +351,7 @@ function App() {
           }
 
           setBusy(false);
+          await maybeAutoCompact();
           return;
         } catch (err) {
           if (!isTransient(err)) {
@@ -368,41 +445,7 @@ function App() {
       });
       return;
     }
-    if (v === '/compact') {
-      const before: any = await state.load();
-      const msgs: any[] = before?.messages ?? [];
-      if (msgs.length === 0) { push({ kind: 'note', text: 'nothing to compact' }); return; }
-      const transcript = msgs.map((mm: any) => {
-        const role = mm.role ?? mm.type ?? '?';
-        const body = typeof mm.content === 'string'
-          ? mm.content
-          : Array.isArray(mm.content) ? mm.content.map((x: any) => x?.text ?? '').join(' ') : '';
-        return body ? role + ': ' + body : '';
-      }).filter(Boolean).join('\n').slice(-24000);
-      push({ kind: 'note', text: 'compacting\u2026' });
-      setBusy(true);
-      try {
-        const r = callModel(client, {
-          model: modelRef.current,
-          input: 'Summarize this coding session transcript. Sections: Goal, Done, In progress, Key files and decisions, Next step. Be dense and factual. No preamble.\n\n' + transcript,
-          stopWhen: stepCountIs(1),
-        } as any);
-        const summary = (await (r as any).getText().catch(() => '')).trim();
-        if (!summary) throw new Error('empty summary');
-        carryRef.current = summary;
-        const nid = newSessionId();
-        switchSession(nid);
-        setSid(nid);
-        process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
-        setItems([{ kind: 'banner' }, { kind: 'note', text: 'compacted \u00b7 ' + msgs.length + ' messages \u2192 summary' }, { kind: 'assistant', text: summary }]);
-        setStaticKey((k) => k + 1);
-        setTokens(0);
-      } catch (e: any) {
-        push({ kind: 'error', text: 'compact failed: ' + (e?.message ?? String(e)) });
-      }
-      setBusy(false);
-      return;
-    }
+    if (v === '/compact') { await runCompact(false); return; }
     if (v === '/context') {
       const limit = ctxLimit(model);
       const sys = approxTokens(buildSystemPrompt());
