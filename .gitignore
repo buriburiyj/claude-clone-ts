@@ -1,5 +1,8 @@
-node_modules/
-dist/
+.DS_Store
 .env
-hello.txt
+*.tgz
+dist/
 greet.txt
+hello.txt
+node_modules/
+tests/tmpfix/
