@@ -1,3 +1,5 @@
+[![ci](https://github.com/buriburiyj/claude-clone-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/buriburiyj/claude-clone-ts/actions/workflows/ci.yml)
+
 **English** · [한국어](README.ko.md)
 
 # claude-clone-ts
