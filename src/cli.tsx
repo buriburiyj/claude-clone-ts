@@ -12,7 +12,7 @@ import { isTrusted, trust, isRisky } from './permissions/trust.js';
 import { TrustDialog } from './ui/trust.jsx';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
 import { tools } from './tools/index.js';
-import { fileState, newSessionId, listSessions } from './session/store.js';
+import { fileState, newSessionId, deleteSession, listSessions } from './session/store.js';
 import { Banner } from './ui/banner.js';
 import { setThemeMode, getThemeMode, getThemeLabel } from './ui/theme.js';
 import { getColors } from './ui/theme.js';
@@ -410,6 +410,30 @@ function App() {
       setThemeMode(next as any);
       setThemeTick((t) => t + 1);
       push({ kind: 'note', text: `theme → ${getThemeLabel()}` });
+      return;
+    }
+    if (v.startsWith('/sessions ')) {
+      const parts = v.split(/\s+/).slice(1);
+      const sub = parts[0];
+      const ss = await listSessions();
+      if (sub === 'rm') {
+        const q = parts[1];
+        if (!q) { push({ kind: 'note', text: 'usage: /sessions rm <id>' }); return; }
+        const hit = ss.find((x: any) => matchId(x.id, q));
+        if (!hit) { push({ kind: 'note', text: `no session matching ${q}` }); return; }
+        if (hit.id === sid) { push({ kind: 'note', text: 'cannot delete the active session' }); return; }
+        await deleteSession(hit.id);
+        push({ kind: 'note', text: `deleted ${hit.id}` });
+        return;
+      }
+      if (sub === 'clean') {
+        const keep = Number(parts[1] ?? 5) || 5;
+        const doomed = ss.slice(keep).filter((x: any) => x.id !== sid);
+        for (const d of doomed) await deleteSession(d.id);
+        push({ kind: 'note', text: `removed ${doomed.length} · kept ${ss.length - doomed.length}` });
+        return;
+      }
+      push({ kind: 'note', text: 'usage: /sessions rm <id>  ·  /sessions clean [keep]' });
       return;
     }
     if (v === '/sessions') {
