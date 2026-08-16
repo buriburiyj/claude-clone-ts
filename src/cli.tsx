@@ -10,7 +10,7 @@ import { MentionInput } from './ui/MentionInput.js';
 import { callModel, stepCountIs } from '@openrouter/agent';
 import { isReadOnlyCmd } from './permissions/safeCmd.js';
 import { isTrusted, trust, isRisky } from './permissions/trust.js';
-import { TrustDialog } from './ui/trust.jsx';
+import { TrustDialog } from './ui/trust.js';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
 import { tools } from './tools/index.js';
 import { fileState, newSessionId, deleteSession, shortId, listSessions } from './session/store.js';

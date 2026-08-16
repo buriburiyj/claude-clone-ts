@@ -1,17 +1,17 @@
 {
-  "name": "claude-clone-ts",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "@buriburiyj/cl",
+  "version": "0.1.0",
+  "description": "A terminal coding agent on OpenRouter",
   "scripts": {
     "test": "node --import tsx --test tests/*.test.ts",
     "dev": "tsx src/cli.tsx",
     "build": "tsc",
-    "start": "node dist/cli.js"
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -33,5 +33,10 @@
   },
   "bin": {
     "cl": "./bin/cc.js"
-  }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ]
 }
