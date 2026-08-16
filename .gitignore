@@ -5,4 +5,3 @@ dist/
 greet.txt
 hello.txt
 node_modules/
-tests/tmpfix/

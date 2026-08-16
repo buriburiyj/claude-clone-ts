@@ -8,6 +8,7 @@ import { buildSystemPrompt } from './prompt/system.js';
 import { setMode, getMode, cycleMode, modeLabel, modeColor, type PermissionMode } from './permissions/mode.js';
 import { MentionInput } from './ui/MentionInput.js';
 import { callModel, stepCountIs } from '@openrouter/agent';
+import { isReadOnlyCmd } from './permissions/safeCmd.js';
 import { isTrusted, trust, isRisky } from './permissions/trust.js';
 import { TrustDialog } from './ui/trust.jsx';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
@@ -175,11 +176,12 @@ function App() {
   });
 
   const WRITE_TOOLS = new Set(['edit_file', 'write_file']);
-  const shouldAutoApprove = (name: string) => {
+  const shouldAutoApprove = (name: string, args?: any) => {
     const m = getMode();
     if (m === 'bypassPermissions') return true;
     if (m === 'acceptEdits' && WRITE_TOOLS.has(name)) return true;
     if (!name) return false;
+    if (name === 'bash') return isReadOnlyCmd(args?.command ?? '');
     return autoApproveRef.current.has(name);
   };
 
@@ -346,7 +348,7 @@ function App() {
               if (getMode() === 'plan' && WRITE_TOOLS.has(call.name)) {
                 push({ kind: 'note', text: PLAN_BLOCK + call.name + ' blocked' });
                 reject.push(call.id);
-              } else if (shouldAutoApprove(call.name)) {
+              } else if (shouldAutoApprove(call.name, call.arguments)) {
                 approve.push(call.id);
               } else {
                 ask.push(call);
@@ -543,11 +545,11 @@ function App() {
       push({ kind: 'note', text: 'Rejected ' + call.name });
       dec.reject.push(call.id);
     } else {
-      if (d === 'session' && call.name) autoApproveRef.current.add(call.name);
+      if (d === 'session' && call.name && call.name !== 'bash') autoApproveRef.current.add(call.name);
       dec.approve.push(call.id);
     }
     let rest = queue.slice(1);
-    while (rest.length > 0 && shouldAutoApprove(rest[0]!.name)) {
+    while (rest.length > 0 && shouldAutoApprove(rest[0]!.name, rest[0]!.arguments)) {
       dec.approve.push(rest[0]!.id);
       rest = rest.slice(1);
     }
