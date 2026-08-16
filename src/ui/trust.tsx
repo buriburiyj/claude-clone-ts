@@ -18,12 +18,13 @@ export function TrustDialog({
 }) {
   const c = getColors();
   const [cursor, setCursor] = useState(0);
+  const opts = risky ? OPTIONS.filter(o => o.key === 'no') : OPTIONS;
   useInput((input, key) => {
     if (key.upArrow) setCursor((i) => Math.max(0, i - 1));
-    else if (key.downArrow) setCursor((i) => Math.min(OPTIONS.length - 1, i + 1));
-    else if (key.return) onDecide(OPTIONS[cursor]!.key === 'yes');
+    else if (key.downArrow) setCursor((i) => Math.min(opts.length - 1, i + 1));
+    else if (key.return) onDecide(opts[cursor]!.key === 'yes');
     else if (key.escape) onDecide(false);
-    else if (input === '1') onDecide(true);
+    else if (input === '1') onDecide(!risky);
     else if (input === '2') onDecide(false);
   });
   return (
@@ -32,10 +33,10 @@ export function TrustDialog({
       <Text>{dir}</Text>
       <Box marginTop={1} flexDirection="column">
         <Text dimColor>The agent can read, edit, and run commands here.</Text>
-        {risky && <Text color="red">This is a very broad location. Consider a project folder instead.</Text>}
+        {risky && <Text color="red">Too broad to run here. Open a project folder instead.</Text>}
       </Box>
       <Box marginTop={1} flexDirection="column">
-        {OPTIONS.map((o, i) => (
+        {opts.map((o, i) => (
           <Text key={o.key} color={i === cursor ? c.signature : undefined}>
             {(i === cursor ? '> ' : '  ') + (i + 1) + '. ' + o.label}
           </Text>
