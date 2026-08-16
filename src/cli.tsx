@@ -144,7 +144,7 @@ function App() {
   useInput((_i, key) => {
     if (key.ctrl && _i === 'c') {
       const now = Date.now();
-      if (now - ctrlCRef.current < 2000) { exit(); process.exit(0); }
+      if (now - ctrlCRef.current < 2000) { farewell(); exit(); process.exit(0); }
       ctrlCRef.current = now;
       if (busy) { genRef.current++; setBusy(false); push({ kind: 'note', text: 'Interrupted \u00b7 press Ctrl+C again to exit' }); }
       else push({ kind: 'note', text: 'Press Ctrl+C again to exit' });
@@ -182,6 +182,17 @@ function App() {
     if (!name) return false;
     return autoApproveRef.current.has(name);
   };
+
+  function farewell() {
+    const turns = items.filter((x: any) => x.kind === 'user').length;
+    const lines = [
+      '',
+      '  session ' + sid + '  ·  ' + turns + ' turns  ·  ~' + tokens.toLocaleString() + ' tokens',
+      '  resume with:  cl  then  /resume ' + sid.replace(/^conv_/, ''),
+      '',
+    ];
+    process.stdout.write(lines.join('\n'));
+  }
 
   async function runCompact(auto: boolean) {
       const before: any = await state.load();
@@ -379,7 +390,7 @@ function App() {
     const v = value.trim();
     setInput('');
     if (!v) return;
-    if (v === '/exit' || v === '/quit') return exit();
+    if (v === '/exit' || v === '/quit') { farewell(); return exit(); }
     if (v === '/clear') {
       process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
       setItems([{ kind: 'banner' }]);
