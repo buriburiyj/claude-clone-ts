@@ -18,3 +18,10 @@ test('trailing slash and dots normalize', () => {
   assert.equal(isRisky(homedir() + '/'), true);
   assert.equal(isRisky(join(homedir(), 'proj', '..')), true);
 });
+
+test('shortId is stable and prefixed', async () => {
+  const { shortId } = await import('../src/session/store.js');
+  assert.equal(shortId('conv_e84ad2d3-d389-465d'), 'conv_e84');
+  assert.equal(shortId('e84ad2d3-d389'), 'conv_e84');
+  assert.equal(shortId(''), 'conv_');
+});

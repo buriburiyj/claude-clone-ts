@@ -1,4 +1,5 @@
 import React from 'react';
+import { shortId } from '../session/store.js';
 import { Box, Text } from 'ink';
 import { getColors, getThemeLabel } from './theme.js';
 
@@ -13,7 +14,7 @@ export function Banner({ model, cwd, sessionId }: { model: string; cwd: string; 
       </Box>
       <Text dimColor>{`  ${model}`}</Text>
       <Text dimColor>{`  ${short}`}</Text>
-      <Text dimColor>{`  session ${sessionId.slice(0, 8)}  ·  ${getThemeLabel()}`}</Text>
+      <Text dimColor>{`  session ${shortId(sessionId)}  ·  ${getThemeLabel()}`}</Text>
       <Box marginTop={1}>
         <Text dimColor>/help for commands · /theme to switch · /resume to continue</Text>
       </Box>

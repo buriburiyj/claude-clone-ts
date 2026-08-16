@@ -13,7 +13,7 @@ import { isTrusted, trust, isRisky } from './permissions/trust.js';
 import { TrustDialog } from './ui/trust.jsx';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
 import { tools } from './tools/index.js';
-import { fileState, newSessionId, deleteSession, listSessions } from './session/store.js';
+import { fileState, newSessionId, deleteSession, shortId, listSessions } from './session/store.js';
 import { Banner } from './ui/banner.js';
 import { setThemeMode, getThemeMode, getThemeLabel } from './ui/theme.js';
 import { getColors } from './ui/theme.js';
@@ -189,7 +189,7 @@ function App() {
     const turns = items.filter((x: any) => x.kind === 'user').length;
     const lines = [
       '',
-      '  session ' + sid + '  ·  ' + turns + ' turns  ·  ~' + tokens.toLocaleString() + ' tokens',
+      '  session ' + shortId(sid) + '  ·  ' + turns + ' turns  ·  ~' + tokens.toLocaleString() + ' tokens',
       '  resume with:  cl  then  /resume ' + sid.replace(/^conv_/, ''),
       '',
     ];
@@ -425,7 +425,7 @@ function App() {
         if (!hit) { push({ kind: 'note', text: `no session matching ${q}` }); return; }
         if (hit.id === sid) { push({ kind: 'note', text: 'cannot delete the active session' }); return; }
         await deleteSession(hit.id);
-        push({ kind: 'note', text: `deleted ${hit.id}` });
+        push({ kind: 'note', text: `deleted ${shortId(hit.id)}` });
         return;
       }
       if (sub === 'clean') {
@@ -443,7 +443,7 @@ function App() {
         if (ss.length === 0) return push({ kind: 'note', text: 'no saved sessions' });
         for (const s2 of ss.slice(0, 10)) {
           const when = new Date(s2.updatedAt).toLocaleString();
-          push({ kind: 'note', text: `${s2.id.slice(0, 8)}  ${when}  ${s2.turns} turns  ${s2.cwd.replace(process.env.HOME ?? '', '~')}` });
+          push({ kind: 'note', text: `${shortId(s2.id)}  ${when}  ${s2.turns} turns  ${s2.cwd.replace(process.env.HOME ?? '', '~')}` });
         }
       });
       return;
@@ -469,7 +469,7 @@ function App() {
           else if (msg.role === 'assistant') push({ kind: 'assistant', text });
         }
         setSid(target.id);
-        push({ kind: 'note', text: `resumed ${target.id.slice(0, 8)} · ${msgs.length} messages` });
+        push({ kind: 'note', text: `resumed ${shortId(target.id)} · ${msgs.length} messages` });
       });
       return;
     }

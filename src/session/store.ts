@@ -88,3 +88,8 @@ export async function listSessions(): Promise<SessionMeta[]> {
 export async function deleteSession(id: string): Promise<void> {
   await fs.rm(file(id), { force: true });
 }
+
+/** conv_e84ad2d3-... -> conv_e84 (표시용) */
+export function shortId(id: string): string {
+  return 'conv_' + (id ?? '').replace(/^conv_/, '').slice(0, 3);
+}
