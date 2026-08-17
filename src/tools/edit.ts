@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import { z } from 'zod';
 import { tool } from '@openrouter/agent';
 import { resolveSafe, rel } from './paths.js';
+import { typecheck } from './verify.js';
 
 export class EditError extends Error {}
 
@@ -39,6 +40,12 @@ export const editFileTool = tool({
     const before = await fs.readFile(abs, 'utf8');
     const { text, count } = applyEdit(before, old_text, new_text, replace_all ?? false);
     await fs.writeFile(abs, text, 'utf8');
-    return { path: rel(abs), replacements: count, lines: text.split('\n').length };
+    const errors = await typecheck([rel(abs)]);
+    return {
+      path: rel(abs),
+      replacements: count,
+      lines: text.split('\n').length,
+      ...(errors.length ? { typeErrors: errors } : {}),
+    };
   },
 });
