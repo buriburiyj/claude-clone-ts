@@ -37,6 +37,7 @@ function scanDir(skillsDir: string, found: Skill[]): void {
 export function scanSkills(): Skill[] {
   if (cache) return cache;
   const found: Skill[] = [];
+  scanDir(path.join(process.cwd(), '.cl', 'skills'), found);
   scanDir(path.join(process.cwd(), '.claude', 'skills'), found);
   scanDir(path.join(os.homedir(), '.claude-clone', 'skills'), found);
   cache = found;
