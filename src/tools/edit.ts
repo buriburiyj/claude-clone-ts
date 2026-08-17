@@ -23,6 +23,23 @@ export function applyEdit(
   return { text: replaceAll ? parts.join(newText) : content.replace(oldText, newText), count };
 }
 
+const MAX_CONSECUTIVE_FAILURES = 3;
+const failures = new Map<string, number>();
+
+/** Pure-ish: 파일별 연속 실패를 세고, 한계를 넘으면 중단 신호를 준다. */
+export function noteEditResult(file: string, failed: boolean): number {
+  if (!failed) { failures.delete(file); return 0; }
+  const n = (failures.get(file) ?? 0) + 1;
+  failures.set(file, n);
+  return n;
+}
+
+export function shouldStopEditing(n: number): boolean {
+  return n >= MAX_CONSECUTIVE_FAILURES;
+}
+
+export function resetEditFailures(): void { failures.clear(); }
+
 export const editFileTool = tool({
   name: 'edit_file',
   description:
@@ -41,6 +58,18 @@ export const editFileTool = tool({
     const { text, count } = applyEdit(before, old_text, new_text, replace_all ?? false);
     await fs.writeFile(abs, text, 'utf8');
     const errors = await typecheck([rel(abs)]);
+    const streak = noteEditResult(rel(abs), errors.length > 0);
+    if (shouldStopEditing(streak)) {
+      return {
+        path: rel(abs),
+        replacements: count,
+        stopEditing: true,
+        message:
+          `This file still has type errors after ${streak} consecutive edits. Stop editing it. ` +
+          `Report the remaining errors to the user and ask how to proceed.`,
+        typeErrors: errors,
+      };
+    }
     return {
       path: rel(abs),
       replacements: count,
