@@ -1,4 +1,6 @@
 import { wrapAll } from './tools/wrap.js';
+import { loadEnv } from './config/env.js';
+loadEnv();
 import { loadMcpTools, mcpStatus, closeMcp } from './mcp/client.js';
 import { bus } from './ui/events.js';
 import React, { useState, useCallback } from 'react';
