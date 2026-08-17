@@ -16,7 +16,7 @@ export async function typecheck(files: string[], timeoutMs = 60_000): Promise<st
   const out = await new Promise<string>((resolve) => {
     execFile(
       'npx',
-      ['tsc', '--noEmit', '--pretty', 'false'],
+      ['tsc', '--noEmit', '--pretty', 'false', '--incremental', '--tsBuildInfoFile', '.tscache/verify.tsbuildinfo'],
       { cwd: process.cwd(), timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024 },
       (_err, stdout, stderr) => resolve((stdout ?? '') + (stderr ?? '')),
     );
