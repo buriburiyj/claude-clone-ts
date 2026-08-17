@@ -12,13 +12,18 @@ function sh(cmd: string, args: string[]): string {
   } catch { return ''; }
 }
 
+const CONTEXT_FILES = ['CL.md', 'CLAUDE.md'] as const;
+
 function projectContext(): string {
-  const p = join(process.cwd(), 'CLAUDE.md');
-  if (!existsSync(p)) return '';
-  try {
-    const t = readFileSync(p, 'utf8').slice(0, 8000);
-    return `\n# Project instructions (CLAUDE.md)\n${t}\n`;
-  } catch { return ''; }
+  for (const name of CONTEXT_FILES) {
+    const p = join(process.cwd(), name);
+    if (!existsSync(p)) continue;
+    try {
+      const t = readFileSync(p, 'utf8').slice(0, 8000);
+      return `\n# Project instructions (${name})\n${t}\n`;
+    } catch { /* try next */ }
+  }
+  return '';
 }
 
 const BASE = `You are an interactive CLI assistant that helps with software engineering tasks.
