@@ -3,7 +3,7 @@ import { tool } from '@openrouter/agent';
 import { z } from 'zod';
 import { clampOutput } from './truncate.js';
 
-const MAX_OUT = 8000_000;
+const MAX_OUT = 8_000;
 
 function clip(s: string): string {
   return clampOutput(s, MAX_OUT).text;

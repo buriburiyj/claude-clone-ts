@@ -55,3 +55,10 @@ test('mainArg: bash shows command', () => {
 test('mainArg: empty input is safe', () => {
   assert.equal(mainArg({}), '');
 });
+
+test('clampOutput: a single huge line is clamped by chars', () => {
+  const r = clampOutput('x'.repeat(20_000), 8_000);
+  assert.equal(r.truncated, true);
+  assert.ok(r.text.length < 9_000, `got ${r.text.length}`);
+  assert.match(r.text, /chars omitted/);
+});
