@@ -38,5 +38,13 @@
     "dist",
     "bin",
     "README.md"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/buriburiyj/claude-clone-ts.git"
+  },
+  "homepage": "https://github.com/buriburiyj/claude-clone-ts#readme",
+  "bugs": {
+    "url": "https://github.com/buriburiyj/claude-clone-ts/issues"
+  }
 }

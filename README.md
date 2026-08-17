@@ -63,12 +63,15 @@ approval and never enters the model context.
 
 ```bash
 npm install
-export OPENROUTER_API_KEY=sk-or-...
+mkdir -p ~/.claude-clone
+echo 'OPENROUTER_API_KEY=sk-or-...' > ~/.claude-clone/.env
+chmod 600 ~/.claude-clone/.env
 npm run dev
 ```
 
-The default model is `nvidia/nemotron-3-ultra-550b-a55b:free`, falling back to
-`nemotron-3-super-120b` and then `gpt-oss-20b`. Edit `src/llm/client.ts` to change them.
+Get a key at https://openrouter.ai/keys. A project-local `.env` wins over
+`~/.claude-clone/.env`, and a shell variable wins over both. The model chain is
+seven entries long and wraps around on failure; edit `MODELS` in `src/llm/client.ts`.
 
 ## Token efficiency
 
@@ -105,7 +108,7 @@ src/
 
 - With parallel tool calls, `⏺` call lines and `⎿` result lines don't line up visually.
 - `ctrl+o` toggles all output at once rather than an individual block.
-- No tests yet.
+- Resizing the terminal reflows earlier output instead of redrawing it.
 
 ## License
 
