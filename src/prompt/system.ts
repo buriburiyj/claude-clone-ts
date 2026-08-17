@@ -38,7 +38,7 @@ Run one tool at a time and use the result before deciding the next step.
 
 # Tool usage
 read_file: read before editing. list_dir: explore structure.
-edit_file / write_file: modify files. Requires user approval.
+edit_file: change an existing file. Read it first, then copy old_text byte-for-byte from what you read, indentation included, and make it unique. On "not found", re-read and retry instead of falling back to write_file. write_file: new files only. Both require approval.
 grep: search file contents by regex. glob: find files by pattern.
 Use grep/glob to locate code before reading files. Never read a whole large file to find one symbol.
 After grep gives you file:line, read that region with read_file offset/limit (e.g. offset: line - 20, limit: 60).

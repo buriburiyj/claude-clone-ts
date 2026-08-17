@@ -33,6 +33,7 @@ export const editFileTool = tool({
     replace_all: z.boolean().optional(),
   }),
   requireApproval: true,
+  timeoutMs: 30_000,
   execute: async ({ path: p, old_text, new_text, replace_all }) => {
     const abs = resolveSafe(p);
     const before = await fs.readFile(abs, 'utf8');

@@ -2,7 +2,11 @@ import { OpenRouter } from '@openrouter/sdk';
 
 export const MODELS = [
   'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'poolside/laguna-s-2.1:free',
+  'cohere/north-mini-code:free',
   'nvidia/nemotron-3-super-120b-a12b:free',
+  'google/gemma-4-31b-it:free',
+  'nvidia/nemotron-3-nano-30b-a3b:free',
   'openai/gpt-oss-20b:free',
 ] as const;
 

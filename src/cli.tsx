@@ -283,7 +283,8 @@ function App() {
     setActiveTool(undefined);
 
     const start = Math.max(0, (MODELS as readonly string[]).indexOf(modelRef.current));
-    for (let mi = start; mi < MODELS.length; mi++) {
+    for (let step = 0; step < MODELS.length; step++) {
+      const mi = (start + step) % MODELS.length;
       const m = MODELS[mi]!;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -380,8 +381,8 @@ function App() {
           await sleep(wait * 1000);
         }
       }
-      if (mi < MODELS.length - 1) {
-        push({ kind: 'note', text: `falling back to ${MODELS[mi + 1]}` });
+      if (step < MODELS.length - 1) {
+        push({ kind: 'note', text: `falling back to ${MODELS[(start + step + 1) % MODELS.length]}` });
       }
     }
     push({ kind: 'error', text: 'all models exhausted' });
