@@ -42,7 +42,7 @@ export const readFileTool = tool({
 export const writeFileTool = tool({
   name: 'write_file',
   description:
-    'Create a new file or overwrite an existing one. For modifying part of an existing file, prefer edit_file.',
+    'Create a NEW file. Do not use on an existing file: use edit_file instead, which changes only the target lines.',
   inputSchema: z.object({
     path: z.string(),
     content: z.string(),
