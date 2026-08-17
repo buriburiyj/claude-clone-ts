@@ -8,7 +8,7 @@ import { buildSystemPrompt } from './prompt/system.js';
 import { setMode, getMode, cycleMode, modeLabel, modeColor, type PermissionMode } from './permissions/mode.js';
 import { MentionInput } from './ui/MentionInput.js';
 import { callModel, stepCountIs } from '@openrouter/agent';
-import { isReadOnlyCmd } from './permissions/safeCmd.js';
+import { isReadOnlyCmd, isSessionApprovable } from './permissions/safeCmd.js';
 import { isTrusted, trust, isRisky } from './permissions/trust.js';
 import { TrustDialog } from './ui/trust.js';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
@@ -546,7 +546,7 @@ function App() {
       push({ kind: 'note', text: 'Rejected ' + call.name });
       dec.reject.push(call.id);
     } else {
-      if (d === 'session' && call.name && call.name !== 'bash') autoApproveRef.current.add(call.name);
+      if (d === 'session' && isSessionApprovable(call.name)) autoApproveRef.current.add(call.name);
       dec.approve.push(call.id);
     }
     let rest = queue.slice(1);
