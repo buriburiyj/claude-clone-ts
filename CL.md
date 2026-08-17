@@ -11,3 +11,6 @@ TypeScript + Ink 기반 CLI 에이전트. OpenRouter 무료 모델 체인으로 
 - 기존 파일 수정은 반드시 `edit_file`. `write_file`은 새 파일 전용.
 - 도구 추가 시 `src/tools/index.ts`의 export/import/배열 세 곳을 모두 갱신한다.
 - 경로는 `resolveSafe`를 통과시킨다. 작업 디렉터리 밖은 차단된다.
+
+## 참고
+- 스킬은 ~/.claude-clone/skills/ 아래 SKILL.md로 둔다.
