@@ -10,7 +10,7 @@ import { buildSystemPrompt } from './prompt/system.js';
 import { setMode, getMode, cycleMode, modeLabel, modeColor, type PermissionMode } from './permissions/mode.js';
 import { MentionInput } from './ui/MentionInput.js';
 import { callModel, stepCountIs } from '@openrouter/agent';
-import { isReadOnlyCmd, isSessionApprovable } from './permissions/safeCmd.js';
+import { isReadOnlyCmd, isSessionApprovable, isPlanBlocked } from './permissions/safeCmd.js';
 import { isTrusted, trust, isRisky } from './permissions/trust.js';
 import { TrustDialog } from './ui/trust.js';
 import { createClient, MODELS, isTransient, sleep } from './llm/client.js';
@@ -357,7 +357,7 @@ function App() {
             const reject: string[] = [];
             const ask: PendingCall[] = [];
             for (const call of nextPending) {
-              if (getMode() === 'plan' && WRITE_TOOLS.has(call.name)) {
+              if (getMode() === 'plan' && isPlanBlocked(call.name, call.arguments)) {
                 push({ kind: 'note', text: PLAN_BLOCK + call.name + ' blocked' });
                 reject.push(call.id);
               } else if (shouldAutoApprove(call.name, call.arguments)) {
