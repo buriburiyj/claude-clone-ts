@@ -3,6 +3,9 @@ const READONLY = [
   'echo', 'date', 'whoami', 'env', 'tree', 'du', 'df',
   'git status', 'git diff', 'git log', 'git show', 'git branch',
   'npm ls', 'node --version', 'npm --version',
+  'agent-browser snapshot', 'agent-browser get', 'agent-browser is',
+  'agent-browser console', 'agent-browser errors',
+  'agent-browser skills', 'agent-browser session', 'agent-browser --version',
 ];
 
 const FORBIDDEN = /[;&|><`$(){}[\]!*?~\n\r\\]/;
