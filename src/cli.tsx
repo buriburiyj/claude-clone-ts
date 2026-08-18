@@ -155,6 +155,13 @@ function App() {
       push({ kind: 'note', text: 'Interrupted \u00b7 press Ctrl+C again to exit' });
       return;
     }
+    if (key.ctrl && _i === 'o') {
+      setExpanded((v) => {
+        push({ kind: 'note', text: v ? 'Output truncated to 5 lines' : 'Full output on (applies to new results)' });
+        return !v;
+      });
+      return;
+    }
     if (key.escape && busy) { genRef.current++; abortRef.current?.abort(); setBusy(false); }
     else if (key.escape && !busy) {
       const now = Date.now();
