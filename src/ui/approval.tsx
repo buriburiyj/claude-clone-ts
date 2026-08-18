@@ -3,6 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import { getColors } from './theme.js';
 import { displayName } from './render.js';
 import { DiffView } from './diff.js';
+import { isSessionApprovable } from '../permissions/safeCmd.js';
 
 export type PendingCall = { id: string; name: string; arguments: Record<string, unknown> };
 export type Decision = 'once' | 'session' | 'reject';
@@ -24,13 +25,15 @@ export function ApprovalDialog({
 }) {
   const c = getColors();
   const [cursor, setCursor] = useState(0);
+  const sessionOk = isSessionApprovable(call.name);
+  const options = sessionOk ? OPTIONS : OPTIONS.filter((o) => o.key !== 'session');
 
   useInput((input, key) => {
-    if (key.upArrow) setCursor((i) => (i - 1 + OPTIONS.length) % OPTIONS.length);
-    else if (key.downArrow) setCursor((i) => (i + 1) % OPTIONS.length);
-    else if (key.return) onDecide(OPTIONS[cursor]!.key);
+    if (key.upArrow) setCursor((i) => (i - 1 + options.length) % options.length);
+    else if (key.downArrow) setCursor((i) => (i + 1) % options.length);
+    else if (key.return) onDecide(options[cursor]!.key);
     else if (key.escape) onDecide('reject');
-    else if (input >= '1' && input <= '3') onDecide(OPTIONS[Number(input) - 1]!.key);
+    else if (input >= '1' && Number(input) <= options.length) onDecide(options[Number(input) - 1]!.key);
   });
 
   const args = call.arguments;
@@ -52,12 +55,18 @@ export function ApprovalDialog({
       )}
       <Box marginTop={1} flexDirection="column">
         <Text dimColor>Do you want to proceed?</Text>
-        {OPTIONS.map((o, i) => (
+        {options.map((o, i) => (
           <Text key={o.key} color={i === cursor ? c.signature : undefined}>
             {i === cursor ? '❯ ' : '  '}
             {i + 1}. {o.label}
           </Text>
         ))}
+        {!sessionOk && (
+          <Text dimColor>
+            {displayName(call.name)} takes arguments, so a session-wide yes would cover
+            commands you have not seen. Approve each call.
+          </Text>
+        )}
       </Box>
     </Box>
   );

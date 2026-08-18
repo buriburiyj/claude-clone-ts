@@ -23,3 +23,11 @@ test('empty name is rejected', () => {
 test('set stays in sync with the guard', () => {
   for (const n of ARG_SENSITIVE_TOOLS) assert.equal(isSessionApprovable(n), false);
 });
+
+test('MCP tools are never session-approvable', () => {
+  for (const n of [
+    'mcp__filesystem__read_file',
+    'mcp__filesystem__write_file',
+    'mcp__anything__do_thing',
+  ]) assert.equal(isSessionApprovable(n), false, n);
+});

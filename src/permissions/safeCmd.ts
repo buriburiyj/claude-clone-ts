@@ -33,5 +33,7 @@ export const ARG_SENSITIVE_TOOLS = new Set([
 /** 이 도구가 "이 세션에선 묻지 않기" 대상이 될 수 있는지 */
 export function isSessionApprovable(name: string): boolean {
   if (!name) return false;
+  // MCP tools come from external servers; their argument surface is unknown here.
+  if (name.startsWith('mcp__')) return false;
   return !ARG_SENSITIVE_TOOLS.has(name);
 }
