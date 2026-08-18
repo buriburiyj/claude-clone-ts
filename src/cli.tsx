@@ -597,7 +597,21 @@ function App() {
         </Box>
       )}
 
-      {pending && <ApprovalDialog call={pending} onDecide={onDecide} />}
+      {pending && (
+        <ApprovalDialog
+          call={pending}
+          preview={
+            pending.name === 'edit_file' && typeof pending.arguments.old_text === 'string'
+              ? {
+                  oldText: String(pending.arguments.old_text),
+                  newText: String(pending.arguments.new_text ?? ''),
+                  path: String(pending.arguments.path ?? ''),
+                }
+              : undefined
+          }
+          onDecide={onDecide}
+        />
+      )}
 
       {mode !== 'default' && (
 
