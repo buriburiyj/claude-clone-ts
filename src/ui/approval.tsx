@@ -63,8 +63,8 @@ export function ApprovalDialog({
         ))}
         {!sessionOk && (
           <Text dimColor>
-            {displayName(call.name)} takes arguments, so a session-wide yes would cover
-            commands you have not seen. Approve each call.
+            This tool takes arguments, so a session-wide yes would cover calls you
+            have not seen. Approve each one.
           </Text>
         )}
       </Box>
