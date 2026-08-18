@@ -147,10 +147,12 @@ function App() {
   useInput((_i, key) => {
     if (key.ctrl && _i === 'c') {
       const now = Date.now();
+      // 유휴 상태에서는 중단할 일이 없으므로 한 번에 종료한다.
+      if (!busy) { farewell(); exit(); process.exit(0); }
       if (now - ctrlCRef.current < 2000) { farewell(); exit(); process.exit(0); }
       ctrlCRef.current = now;
-      if (busy) { genRef.current++; setBusy(false); push({ kind: 'note', text: 'Interrupted \u00b7 press Ctrl+C again to exit' }); }
-      else push({ kind: 'note', text: 'Press Ctrl+C again to exit' });
+      genRef.current++; abortRef.current?.abort(); setBusy(false);
+      push({ kind: 'note', text: 'Interrupted \u00b7 press Ctrl+C again to exit' });
       return;
     }
     if (key.escape && busy) { genRef.current++; abortRef.current?.abort(); setBusy(false); }
