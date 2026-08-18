@@ -1,4 +1,5 @@
 import { wrapAll } from './tools/wrap.js';
+import { spawn } from 'node:child_process';
 import { loadEnv } from './config/env.js';
 loadEnv();
 import { loadMcpTools, mcpStatus, closeMcp } from './mcp/client.js';
@@ -205,6 +206,10 @@ function App() {
       '',
     ];
     process.stdout.write(lines.join('\n'));
+    // 모델이 close를 빼먹어도 브라우저는 정리한다. 데몬 왕복이 1초를 넘으니 기다리지 않는다.
+    try {
+      spawn('agent-browser', ['close'], { detached: true, stdio: 'ignore' }).unref();
+    } catch {}
   }
 
   async function runCompact(auto: boolean) {
