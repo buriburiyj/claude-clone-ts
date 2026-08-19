@@ -1,6 +1,6 @@
 {
   "name": "@yjunburiburiyj/cl",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A terminal coding agent on OpenRouter",
   "scripts": {
     "test": "node --import tsx --test tests/*.test.ts",
